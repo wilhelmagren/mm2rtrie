@@ -1,6 +1,8 @@
 pub mod radix_trie;
 
-use radix_trie::Trie;
+pub use radix_trie::Trie;
+
+use rand::Rng;
 
 use std::net::Ipv4Addr;
 

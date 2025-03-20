@@ -1,9 +1,12 @@
+use bincode::{Decode, Encode, config};
+
 use std::error::Error;
-use std::fmt;
+use std::fs::{File, OpenOptions};
+use std::io::{BufReader, BufWriter};
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Decode, Encode, Eq, PartialEq)]
 pub struct TrieNode {
     l: Option<Box<TrieNode>>,
     r: Option<Box<TrieNode>>,
@@ -55,7 +58,7 @@ impl TrieNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Decode, Encode, Eq, PartialEq)]
 pub struct Trie {
     root: TrieNode,
 }
@@ -83,6 +86,12 @@ impl Trie {
         self.root.insert(cidr_block.net, mask, value);
     }
 
+    /// Insert a new cidr block by its net and prefix values.
+    pub fn insert_net_and_prefix(&mut self, net: u32, prefix: u32, value: u32) {
+        let mask: u32 = 0xffffffffu32 << (32 - prefix);
+        self.root.insert(net, mask, value);
+    }
+
     /// Get the values associated with the provided ip address.
     pub fn get(&self, ip: u32) -> Vec<u32> {
         let mut buffer: Vec<u32> = Vec::with_capacity(32);
@@ -95,6 +104,38 @@ impl Trie {
         let mut buffer: Vec<u32> = Vec::with_capacity(32);
         self.root.get(ip, 0xffffffffu32, &mut buffer);
         buffer.len() != 0
+    }
+
+    /// Initialize a Trie instance that was saved to a binary file.
+    pub fn read_from_file(path: &str) -> Self {
+        let config: config::Configuration = config::standard();
+        let file: File = match OpenOptions::new()
+            .read(true)
+            .write(false)
+            .open(path) {
+            Ok(f) => f,
+            Err(_) => {
+                println!("{} did not exist, creating an empty Trie...", path);
+                return Trie::empty();
+            },
+        };
+
+        let mut reader: BufReader<File> = BufReader::new(file);
+        bincode::decode_from_std_read(&mut reader, config).unwrap()
+    }
+
+    /// Write the state of the Trie to binary file.
+    pub fn write_to_file(&self, path: &str) {
+        let config: config::Configuration = config::standard();
+        let file: File = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .unwrap();
+
+        let mut writer: BufWriter<File> = BufWriter::new(file);
+        bincode::encode_into_std_write(&self, &mut writer, config).unwrap();
     }
 }
 
@@ -123,9 +164,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn insert_from_net_and_prefix() {
+        let mut t = Trie::empty();
+        t.insert_net_and_prefix(Ipv4Addr::new(183, 40, 20, 0).into(), 8, 49);
+        t.insert_net_and_prefix(Ipv4Addr::new(183, 40, 21, 3).into(), 16, 150);
+        t.insert_net_and_prefix(Ipv4Addr::new(20, 30, 40, 0).into(), 31, 420);
+
+        assert_eq!(false, t.contains_ip(Ipv4Addr::new(182, 41, 21, 3).into()));
+        assert_eq!(vec![49, 150], t.get(Ipv4Addr::new(183, 40, 25, 59).into()));
+        assert_eq!(vec![420], t.get(Ipv4Addr::new(20, 30, 40, 1).into()));
+    }
+
+    #[test]
     fn cidr_block_from_str_ok() {
         let cb = CidrBlock::from_str("127.0.1.40/30").unwrap();
         assert_eq!(u32::from(Ipv4Addr::new(127, 0, 1, 40)), cb.net);
         assert_eq!(30, cb.prefix);
+    }
+
+    #[test]
+    fn write_and_load_trie_ok() {
+        let mut t = Trie::empty();
+        t.insert_cidr("50.178.3.0/16", 3);
+        t.insert_cidr("214.0.0.0/24", 128);
+        t.write_to_file("./test-trie.bin");
+
+        assert_eq!(true, t.contains_ip(Ipv4Addr::new(50, 178, 3, 6).into()));
+        assert_eq!(vec![128], t.get(Ipv4Addr::new(214, 0, 0, 39).into()));
+
+        let mut tt = Trie::read_from_file("./test-trie.bin");
+        assert_eq!(t, tt);
+
+        tt.insert_cidr("33.12.14.0/24", 420);
+        assert_eq!(false, t.contains_ip(Ipv4Addr::new(33, 12, 14, 15).into()));
+        assert_eq!(true, tt.contains_ip(Ipv4Addr::new(33, 12, 14, 15).into()));
     }
 }
