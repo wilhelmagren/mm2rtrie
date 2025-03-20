@@ -16,7 +16,7 @@ fn main() {
     println!("Generating {} CIDR blocks", n_cidr_blocks);
     let cidr_blocks: Vec<(u32, u32)> = generate_cidr_blocks(n_cidr_blocks);
 
-    let mut t = Trie::empty();
+    let mut t: Trie<u32> = Trie::empty();
     println!("Inserting CIDR blocks to Trie");
     let mut thread_rng: ThreadRng = rand::rng();
     for (net, prefix) in cidr_blocks.into_iter() {
@@ -48,5 +48,5 @@ fn main() {
     println!("Example hit: ip={}, values:{:?}", ips[23], t.get(ips[23]));
 
     println!("Writing trie to file 'trie.bin'");
-    t.write_to_file("trie.bin");
+    // t.write_to_file("trie.bin");
 }
