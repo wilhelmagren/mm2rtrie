@@ -4,12 +4,11 @@ pub mod util;
 use radix_trie::Trie;
 use util::{generate_cidr_blocks, generate_ips};
 
-use rand::{rngs::ThreadRng, Rng};
+use rand::{Rng, rngs::ThreadRng};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 
 use std::time::Instant;
-
 
 fn main() {
     let n_cidr_blocks: usize = 64_000;
@@ -30,17 +29,18 @@ fn main() {
     println!("Starting timer, performing {} lookups...", n_ips);
 
     let start = Instant::now();
-    let n_hits: usize = ips.par_iter()
-        .map(|ip| {
-            t.get(*ip).len()
-        })
-        .collect::<Vec<usize>>().into_iter().sum();
+    let n_hits: usize = ips
+        .par_iter()
+        .map(|ip| t.get(*ip).len())
+        .collect::<Vec<usize>>()
+        .into_iter()
+        .sum();
     let elapsed = start.elapsed();
 
     println!(
         "\nSTATS:\nElapsed {:?} ms for {:?} ip lookups, {:?} ns per lookup",
         elapsed.as_millis() as f64,
-        n_ips, 
+        n_ips,
         elapsed.as_nanos() as f64 / n_ips as f64,
     );
 

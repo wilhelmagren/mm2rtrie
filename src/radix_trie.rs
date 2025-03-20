@@ -16,12 +16,24 @@ pub struct TrieNode<V> {
 impl<V> TrieNode<V> {
     /// Create a new empty trie node.
     pub fn empty() -> Self {
-        TrieNode { l: None, r: None, v: None }
+        TrieNode {
+            l: None,
+            r: None,
+            v: None,
+        }
     }
 
     /// Create a new trie node with the provided values.
-    pub fn new(left: Option<Box<TrieNode<V>>>, right: Option<Box<TrieNode<V>>>, value: Option<Vec<V>>) -> Self {
-        TrieNode { l: left, r: right, v: value }
+    pub fn new(
+        left: Option<Box<TrieNode<V>>>,
+        right: Option<Box<TrieNode<V>>>,
+        value: Option<Vec<V>>,
+    ) -> Self {
+        TrieNode {
+            l: left,
+            r: right,
+            v: value,
+        }
     }
 
     fn insert(&mut self, ip: u32, mask: u32, value: V) {
@@ -34,8 +46,11 @@ impl<V> TrieNode<V> {
             return;
         }
 
-        let next_node: &mut Option<Box<TrieNode<V>>>
-            = if ((1u32 << 31) & ip) == 0 { &mut self.l } else { &mut self.r };
+        let next_node: &mut Option<Box<TrieNode<V>>> = if ((1u32 << 31) & ip) == 0 {
+            &mut self.l
+        } else {
+            &mut self.r
+        };
 
         match next_node {
             Some(n) => n.insert(ip << 1, mask << 1, value),
@@ -43,7 +58,7 @@ impl<V> TrieNode<V> {
                 let mut new_node = TrieNode::empty();
                 new_node.insert(ip << 1, mask << 1, value);
                 *next_node = Some(Box::new(new_node));
-            },
+            }
         }
     }
 
@@ -56,7 +71,11 @@ impl<V> TrieNode<V> {
             return;
         }
 
-        if let Some(n) = if ((1u32 << 31) & ip) == 0 { &self.l } else { &self.r } {
+        if let Some(n) = if ((1u32 << 31) & ip) == 0 {
+            &self.l
+        } else {
+            &self.r
+        } {
             n.get(ip << 1, mask << 1, buffer);
         }
     }
@@ -67,11 +86,12 @@ pub struct Trie<V> {
     root: TrieNode<V>,
 }
 
-impl<V: Decode<()> + Encode> Trie<V>
-{
+impl<V: Decode<()> + Encode> Trie<V> {
     /// Create a new empty trie.
     pub fn empty() -> Self {
-        Trie { root: TrieNode::empty() }
+        Trie {
+            root: TrieNode::empty(),
+        }
     }
 
     /// Create a new trie with the provided node as root.
@@ -114,15 +134,12 @@ impl<V: Decode<()> + Encode> Trie<V>
     /// Initialize a Trie instance that was saved to a binary file.
     pub fn read_from_file(path: &str) -> Self {
         let config: config::Configuration = config::standard();
-        let file: File = match OpenOptions::new()
-            .read(true)
-            .write(false)
-            .open(path) {
+        let file: File = match OpenOptions::new().read(true).write(false).open(path) {
             Ok(f) => f,
             Err(_) => {
                 println!("{} did not exist, creating an empty Trie...", path);
                 return Trie::empty();
-            },
+            }
         };
 
         let mut reader: BufReader<File> = BufReader::new(file);
@@ -216,7 +233,10 @@ mod tests {
 
         let gg = t.get(Ipv4Addr::new(10, 123, 42, 250).into());
         assert_eq!(vec![&tds3], gg);
-        assert_eq!(Vec::<&TestDummyStruct>::new(), t.get(Ipv4Addr::new(20, 159, 30, 42).into()));
+        assert_eq!(
+            Vec::<&TestDummyStruct>::new(),
+            t.get(Ipv4Addr::new(20, 159, 30, 42).into())
+        );
     }
 
     #[test]
@@ -227,7 +247,10 @@ mod tests {
         t.insert_net_and_prefix(Ipv4Addr::new(20, 30, 40, 0).into(), 31, 420);
 
         assert_eq!(false, t.contains_ip(Ipv4Addr::new(182, 41, 21, 3).into()));
-        assert_eq!(vec![&49, &150], t.get(Ipv4Addr::new(183, 40, 25, 59).into()));
+        assert_eq!(
+            vec![&49, &150],
+            t.get(Ipv4Addr::new(183, 40, 25, 59).into())
+        );
         assert_eq!(vec![&420], t.get(Ipv4Addr::new(20, 30, 40, 1).into()));
     }
 
