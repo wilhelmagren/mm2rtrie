@@ -1,31 +1,52 @@
 pub mod radix_trie;
+pub mod util;
 
-pub use radix_trie::Trie;
+use radix_trie::Trie;
+use util::{generate_cidr_blocks, generate_ips};
 
-use rand::Rng;
+use rand::{rngs::ThreadRng, Rng};
+use rayon::iter::ParallelIterator;
+use rayon::prelude::IntoParallelRefIterator;
 
-use std::net::Ipv4Addr;
+use std::time::Instant;
 
 
 fn main() {
+    let n_cidr_blocks: usize = 64_000;
+    println!("Generating {} CIDR blocks", n_cidr_blocks);
+    let cidr_blocks: Vec<(u32, u32)> = generate_cidr_blocks(n_cidr_blocks);
+
     let mut t = Trie::empty();
-    t.insert_cidr("50.178.3.0/16", 3);
-    t.insert_cidr("1.2.3.4/32", 1337);
-    t.insert_cidr("214.0.0.0/24", 128);
-    t.insert_cidr("214.1.1.0/24", 986123);
-    t.insert_cidr("50.178.3.5/29", 45);
-    println!("Trie contains 50.178.3.6 ? {}", t.contains_ip(Ipv4Addr::new(50, 178, 3, 6).into()));
-    println!("Trie contains 214.1.2.3 ? {}", t.contains_ip(Ipv4Addr::new(214, 1, 2, 3).into()));
-    println!("Trie get on 214.1.2.3 : {:?}", t.get(Ipv4Addr::new(214, 1, 2, 3).into()));
+    println!("Inserting CIDR blocks to Trie");
+    let mut thread_rng: ThreadRng = rand::rng();
+    for (net, prefix) in cidr_blocks.into_iter() {
+        t.insert_net_and_prefix(net, prefix, thread_rng.random());
+    }
 
-    t.insert_cidr("192.168.0.1/32", 8172864);
-    println!("Trie contains 192.168.0.1 ? {}", t.contains_ip(Ipv4Addr::new(192, 168, 0, 1).into()));
-    println!("Trie get on 192.168.0.1 : {:?}", t.get(Ipv4Addr::new(192, 168, 0, 1).into()));
-    println!("Trie contains 192.168.0.2 ? {}", t.contains_ip(Ipv4Addr::new(192, 168, 0, 2).into()));
-    println!("Trie get on 192.168.0.2 : {:?}", t.get(Ipv4Addr::new(192, 168, 0, 2).into()));
+    let n_ips: usize = 50_000_000;
+    println!("Generating {} ips for lookup", n_ips);
+    let ips: Vec<u32> = generate_ips(n_ips);
 
-    t.insert_cidr("33.12.14.0/24", 420);
-    t.insert_cidr("33.12.0.0/16", 69);
-    println!("Trie contains 33.12.14.15 ? {}", t.contains_ip(Ipv4Addr::new(33, 12, 14, 15).into()));
-    println!("Trie get on 33.12.14.15 : {:?}", t.get(Ipv4Addr::new(33, 12, 14, 15).into()));
+    println!("Starting timer, performing {} lookups...", n_ips);
+
+    let start = Instant::now();
+    let n_hits: usize = ips.par_iter()
+        .map(|ip| {
+            t.get(*ip).len()
+        })
+        .collect::<Vec<usize>>().into_iter().sum();
+    let elapsed = start.elapsed();
+
+    println!(
+        "\nSTATS:\nElapsed {:?} ms for {:?} ip lookups, {:?} ns per lookup",
+        elapsed.as_millis() as f64,
+        n_ips, 
+        elapsed.as_nanos() as f64 / n_ips as f64,
+    );
+
+    println!("Got {} lookup hits", n_hits);
+    println!("Example hit: ip={}, values:{:?}", ips[23], t.get(ips[23]));
+
+    println!("Writing trie to file 'trie.bin'");
+    t.write_to_file("trie.bin");
 }

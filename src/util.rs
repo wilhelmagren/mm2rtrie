@@ -10,6 +10,14 @@ pub fn generate_cidr_blocks(n: usize) -> Vec<(u32, u32)> {
         .collect()
 }
 
+/// Generate n number of random IPv4 numbers.
+pub fn generate_ips(n: usize) -> Vec<u32> {
+    let mut thread_rng = rand::rng();
+    (0..n)
+        .map(|_| thread_rng.random_range(0u32..u32::MAX))
+        .collect()
+}
+
 /// Split the CIDR block into its u32 parts (net, prefix).
 pub fn cidr_to_u32_parts(cidr: &str) -> (u32, u32) {
     let mut parts = cidr.split("/");
