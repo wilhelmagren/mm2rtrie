@@ -278,4 +278,22 @@ mod tests {
         assert_eq!(false, t.contains_ip(Ipv4Addr::new(33, 12, 14, 15).into()));
         assert_eq!(true, tt.contains_ip(Ipv4Addr::new(33, 12, 14, 15).into()));
     }
+
+    #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq)]
+    struct TestMaxMindData {
+        pub geoname_id: u32,
+        pub is_latest: bool,
+    }
+
+    #[test]
+    fn maxmind_data() {
+        let mmd = TestMaxMindData {
+            geoname_id: 2655045,
+            is_latest: true,
+        };
+
+        let mut t: Trie<TestMaxMindData> = Trie::empty();
+        t.insert_net_and_prefix(Ipv4Addr::new(183, 210, 129, 0).into(), 2, mmd);
+        assert_eq!(vec![&mmd], t.get(Ipv4Addr::new(184, 23, 0, 15).into()));
+    }
 }
